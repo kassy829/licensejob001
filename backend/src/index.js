@@ -9,6 +9,7 @@ const jobs = require('./routes/jobs');
 const applications = require('./routes/applications');
 const users = require('./routes/users');
 const errorHandler = require('./middleware/errorHandler');
+const scheduler = require('./services/scheduler');
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  scheduler.start();
 });
 
 module.exports = app;
