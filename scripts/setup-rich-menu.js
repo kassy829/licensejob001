@@ -2,6 +2,8 @@
  * LINEリッチメニュー セットアップスクリプト
  * 実行: node scripts/setup-rich-menu.js
  * 事前に .env の LINE_CHANNEL_ACCESS_TOKEN, LIFF_ID_JOB_SEARCH, LIFF_ID_MYPAGE を設定すること
+ * LIFF ID は LINE ログインチャネルの LIFF タブで追加したアプリの ID を使用してください
+ * （Messaging API チャネルには LIFF を追加できません）
  */
 require('dotenv').config({ path: './backend/.env' });
 const https = require('https');
