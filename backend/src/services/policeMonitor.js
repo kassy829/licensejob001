@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const axios = require('axios');
+const nodemailer = require('nodemailer');
 const db = require('./db');
-const line = require('@line/bot-sdk');
 
 // 監視対象URL（複数設定可能、カンマ区切り）
 const MONITOR_URLS = (
@@ -22,9 +22,17 @@ const GAIMEN_KEYWORDS = [
   '切替申請',
 ];
 
-const lineClient = new line.messagingApi.MessagingApiClient({
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-});
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 function hashContent(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
@@ -70,84 +78,42 @@ async function upsertSnapshot(url, hash, changed) {
   );
 }
 
-async function notifyUpdate(url, matchedKeywords) {
-  const targetId = process.env.STAFF_LINE_USER_ID;
-  if (!targetId) {
-    console.warn('[policeMonitor] STAFF_LINE_USER_ID not set – skipping LINE notify');
+async function sendEmail(url, matchedKeywords) {
+  const to = process.env.NOTIFY_EMAIL;
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  if (!to) {
+    console.warn('[policeMonitor] NOTIFY_EMAIL not set – skipping email');
     return;
   }
 
   const hasGaimen = matchedKeywords.length > 0;
-  const headerColor = hasGaimen ? '#C0392B' : '#0057A8';
-  const headerText = hasGaimen
-    ? '【警察庁】外免切替 関連情報あり'
-    : '【警察庁】ページが更新されました';
-  const bodyText = hasGaimen
-    ? `外免切替に関するキーワードが検出されました。\n検出: ${matchedKeywords.join('、')}`
-    : '警察庁ホームページに変更がありました。外免切替の情報が含まれていない可能性がありますが、ご確認ください。';
+  const subject = hasGaimen
+    ? '【警察庁】外免切替 関連情報が更新されました'
+    : '【警察庁】ホームページに変更がありました';
 
-  const message = {
-    type: 'flex',
-    altText: headerText,
-    contents: {
-      type: 'bubble',
-      header: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: headerText,
-            weight: 'bold',
-            color: '#ffffff',
-            size: 'sm',
-            wrap: true,
-          },
-        ],
-        backgroundColor: headerColor,
-        paddingAll: 'md',
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: bodyText,
-            wrap: true,
-            size: 'sm',
-          },
-          {
-            type: 'text',
-            text: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-            size: 'xs',
-            color: '#888888',
-            margin: 'md',
-          },
-        ],
-      },
-      footer: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          {
-            type: 'button',
-            style: 'primary',
-            color: headerColor,
-            action: {
-              type: 'uri',
-              label: 'ページを確認する',
-              uri: url,
-            },
-          },
-        ],
-      },
-    },
-  };
+  const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  const keywordLine = hasGaimen
+    ? `<p>🔴 <strong>外免切替関連キーワードを検出：</strong>${matchedKeywords.join('、')}</p>`
+    : '<p>ℹ️ 外免切替キーワードは検出されませんでしたが、念のためご確認ください。</p>';
 
-  await lineClient.pushMessage({ to: targetId, messages: [message] });
-  console.log(`[policeMonitor] LINE notification sent (gaimen: ${hasGaimen})`);
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:${hasGaimen ? '#C0392B' : '#0057A8'};color:#fff;padding:16px;border-radius:4px 4px 0 0">
+        <h2 style="margin:0;font-size:16px">${subject}</h2>
+      </div>
+      <div style="border:1px solid #ddd;border-top:none;padding:20px;border-radius:0 0 4px 4px">
+        ${keywordLine}
+        <p>確認日時：${now}</p>
+        <p>監視URL：<a href="${url}">${url}</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+        <p><a href="${url}" style="background:${hasGaimen ? '#C0392B' : '#0057A8'};color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px">ページを確認する</a></p>
+      </div>
+    </div>
+  `;
+
+  const transporter = createTransporter();
+  await transporter.sendMail({ from, to, subject, html });
+  console.log(`[policeMonitor] Email sent to ${to} (gaimen: ${hasGaimen})`);
 }
 
 async function checkUrl(url) {
@@ -162,7 +128,7 @@ async function checkUrl(url) {
   if (changed) {
     const matched = findGaimenKeywords(html);
     console.log(`[policeMonitor] Page changed – keywords: [${matched.join(', ')}]`);
-    await notifyUpdate(url, matched);
+    await sendEmail(url, matched);
   } else if (oldHash === null) {
     const matched = findGaimenKeywords(html);
     console.log(`[policeMonitor] First snapshot saved – keywords found: [${matched.join(', ')}]`);
