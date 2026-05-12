@@ -1,6 +1,6 @@
 const express = require('express');
 const { query, validationResult } = require('express-validator');
-const { searchJobs, getJobDetail } = require('../services/hellowork');
+const { scrapeJobList, scrapeJobDetail } = require('../services/helloworkScraper');
 
 const router = express.Router();
 
@@ -17,24 +17,33 @@ router.get(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-      const data = await searchJobs({
+      const data = await scrapeJobList({
         jobCategory: req.query.category,
         prefecture: req.query.prefecture,
         page: req.query.page || 1,
       });
       res.json(data);
     } catch (err) {
+      if (err.code === 'HOST_NOT_ALLOWED') {
+        return res.status(503).json({ error: err.message });
+      }
       next(err);
     }
   }
 );
 
-// 求人詳細
-router.get('/:jobId', async (req, res, next) => {
+// 求人詳細（detailUrlをクエリパラメータで受け取る）
+router.get('/detail', async (req, res, next) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url パラメータが必要です' });
+
   try {
-    const data = await getJobDetail(req.params.jobId);
+    const data = await scrapeJobDetail(url);
     res.json(data);
   } catch (err) {
+    if (err.code === 'HOST_NOT_ALLOWED') {
+      return res.status(503).json({ error: err.message });
+    }
     next(err);
   }
 });
