@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>どうぶつゲーム</title>
+  <style>
+    body {
+      background: #fff9c4;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      gap: 20px;
+      padding: 20px;
+    }
+    h1 {
+      width: 100%;
+      text-align: center;
+      font-size: 2rem;
+      color: #ff6600;
+      margin-bottom: 10px;
+    }
+    .animal-btn {
+      font-size: 80px;
+      background: white;
+      border: 4px solid #ffcc00;
+      border-radius: 30px;
+      padding: 20px;
+      cursor: pointer;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+      transition: transform 0.1s;
+      width: 150px;
+      height: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .animal-btn:active {
+      transform: scale(0.9);
+    }
+    .animal-btn span {
+      font-size: 18px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🎵 どうぶつのこえ 🎵</h1>
+
+<button class="animal-btn" onclick="speak('ワンワン！')">🐶<span>いぬ</span></button>
+<button class="animal-btn" onclick="speak('ニャーニャー！')">🐱<span>ねこ</span></button>
+<button class="animal-btn" onclick="speak('モーモー！')">🐮<span>うし</span></button>
+<button class="animal-btn" onclick="speak('ブーブー！')">🐷<span>ぶた</span></button>
+<button class="animal-btn" onclick="speak('ケロケロ！')">🐸<span>かえる</span></button>
+<button class="animal-btn" onclick="speak('ピヨピヨ！')">🐥<span>ひよこ</span></button>
+<button class="animal-btn" onclick="speak('ガオー！')">🦁<span>らいおん</span></button>
+<button class="animal-btn" onclick="speak('パオーン！')">🐘<span>ぞう</span></button>
+
+<script>
+  function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    utterance.rate = 0.8;
+    utterance.pitch = 1.5;
+    speechSynthesis.speak(utterance);
+  }
+</script>
+
+</body>
+</html>
